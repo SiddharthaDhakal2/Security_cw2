@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.route";
 import productRoutes from "./routes/product.route";
 import orderRoutes from "./routes/order.route";
 import paymentRoutes from "./routes/payment.route";
+import activityLogRoutes from "./routes/activity-log.route";
 import { connectDatabase } from "./database/mongodb";
 import { PORT } from "./config";
 
@@ -47,6 +48,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/admin", adminUserRoutes);
+app.use("/api/activity-logs", activityLogRoutes);
 
 app.get("/", (req: Request, res: Response) => {
   return res.status(200).json({
