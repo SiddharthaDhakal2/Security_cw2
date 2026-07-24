@@ -25,6 +25,8 @@ export const BCRYPT_SALT_ROUNDS: number = process.env.BCRYPT_SALT_ROUNDS
   : 10;
 
 export const KHALTI_SECRET_KEY: string = process.env.KHALTI_SECRET_KEY || "";
+export const KHALTI_API_BASE_URL: string =
+  process.env.KHALTI_API_BASE_URL || "https://dev.khalti.com/api/v2/epayment";
 export const KHALTI_RETURN_URL: string = process.env.KHALTI_RETURN_URL || "";
 export const KHALTI_WEBSITE_URL: string =
   process.env.KHALTI_WEBSITE_URL ||
