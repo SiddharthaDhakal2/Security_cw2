@@ -2,6 +2,7 @@ import { UserService } from "../services/user.service";
 import { CreateUserDTO, LoginUserDTO, MfaPreferenceDTO, MfaVerifyDTO } from "../dtos/user.dto";
 import { Request, Response } from "express";
 import nodemailer from "nodemailer";
+import { activityLogService } from "../services/activity-log.service";
 
 const userService = new UserService();
 const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
@@ -80,6 +81,20 @@ export class AuthController {
       }
 
       const newUser = await userService.createUser(parsedData.data);
+      await activityLogService.log({
+        req,
+        action: "user.register",
+        description: `User registered: ${newUser.email}`,
+        status: "success",
+        entityType: "user",
+        entityId: newUser._id?.toString(),
+        actor: {
+          id: newUser._id?.toString(),
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+        },
+      });
 
       return res.status(201).json({
         success: true,
@@ -114,6 +129,16 @@ export class AuthController {
 
       if (loginResult.mfaRequired) {
         await sendOtpEmail(loginResult.email!, loginResult.otp!, "Login Verification");
+        await activityLogService.log({
+          req,
+          action: "auth.login.mfa_required",
+          description: `MFA OTP sent for login: ${loginResult.email}`,
+          status: "success",
+          entityType: "user",
+          actor: {
+            email: loginResult.email,
+          },
+        });
 
         return res.status(200).json({
           success: true,
@@ -123,6 +148,21 @@ export class AuthController {
         });
       }
 
+      await activityLogService.log({
+        req,
+        action: "auth.login.success",
+        description: `User logged in: ${loginResult.user?.email}`,
+        status: "success",
+        entityType: "user",
+        entityId: loginResult.user?._id?.toString(),
+        actor: {
+          id: loginResult.user?._id?.toString(),
+          name: loginResult.user?.name,
+          email: loginResult.user?.email,
+          role: loginResult.user?.role,
+        },
+      });
+
       return res.status(200).json({
         success: true,
         message: "Login successful",
@@ -131,6 +171,16 @@ export class AuthController {
         data: loginResult.user,
       });
     } catch (error: any) {
+      await activityLogService.log({
+        req,
+        action: "auth.login.failed",
+        description: `Login failed for ${req.body?.email || "unknown email"}: ${error.message || "Unknown error"}`,
+        status: "failure",
+        entityType: "user",
+        actor: {
+          email: req.body?.email,
+        },
+      });
       return res.status(error.statusCode ?? 500).json({
         success: false,
         message: error.message || "Internal Server Error",
@@ -154,6 +204,20 @@ export class AuthController {
         parsedData.data.email,
         parsedData.data.otp
       );
+      await activityLogService.log({
+        req,
+        action: "auth.login.mfa_verified",
+        description: `MFA login completed: ${user.email}`,
+        status: "success",
+        entityType: "user",
+        entityId: user._id?.toString(),
+        actor: {
+          id: user._id?.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      });
 
       return res.status(200).json({
         success: true,
@@ -187,6 +251,14 @@ export class AuthController {
         parsedData.data.enabled,
         parsedData.data.currentPassword
       );
+      await activityLogService.log({
+        req,
+        action: parsedData.data.enabled ? "auth.mfa.enabled" : "auth.mfa.disabled",
+        description: parsedData.data.enabled ? "User enabled MFA" : "User disabled MFA",
+        status: "success",
+        entityType: "user",
+        entityId: req.params.id,
+      });
 
       return res.status(200).json({
         success: true,
@@ -212,6 +284,14 @@ export class AuthController {
     }
 
     const updated = await userService.updateProfile(requester, req.params.id, update);
+    await activityLogService.log({
+      req,
+      action: "user.profile.updated",
+      description: `Profile updated for ${updated.email}`,
+      status: "success",
+      entityType: "user",
+      entityId: req.params.id,
+    });
 
     return res.status(200).json({
       success: true,
@@ -244,6 +324,14 @@ export class AuthController {
         currentPassword,
         newPassword
       );
+      await activityLogService.log({
+        req,
+        action: "user.password.changed",
+        description: "User changed password",
+        status: "success",
+        entityType: "user",
+        entityId: req.params.id,
+      });
 
       return res.status(200).json({
         success: true,
@@ -274,6 +362,14 @@ export class AuthController {
         req.params.id,
         currentPassword
       );
+      await activityLogService.log({
+        req,
+        action: "user.account.deleted",
+        description: "User deleted own account",
+        status: "success",
+        entityType: "user",
+        entityId: req.params.id,
+      });
 
       return res.status(200).json({
         success: true,
@@ -316,6 +412,14 @@ export class AuthController {
       });
 
       await sendOtpEmail(email, otp);
+      await activityLogService.log({
+        req,
+        action: "auth.password_reset.otp_sent",
+        description: `Password reset OTP sent: ${email}`,
+        status: "success",
+        entityType: "user",
+        actor: { email },
+      });
 
       return res.status(200).json({
         success: true,
@@ -429,6 +533,20 @@ export class AuthController {
       await userService.updateUser(user._id.toString(), {
         resetOtp: null,
         resetOtpExpiry: null,
+      });
+      await activityLogService.log({
+        req,
+        action: "auth.password_reset.completed",
+        description: `Password reset completed: ${email}`,
+        status: "success",
+        entityType: "user",
+        entityId: user._id.toString(),
+        actor: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
       });
 
       return res.status(200).json({

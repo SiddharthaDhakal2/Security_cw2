@@ -1,6 +1,7 @@
 import { ProductService } from "../services/product.service";
 import { CreateProductDTO } from "../dtos/product.dto";
 import { Request, Response } from "express";
+import { activityLogService } from "../services/activity-log.service";
 
 const productService = new ProductService();
 
@@ -28,6 +29,14 @@ export class ProductController {
 
       const productData = parsedData.data;
       const product = await productService.createProduct(productData);
+      await activityLogService.log({
+        req,
+        action: "admin.product.created",
+        description: `Product created: ${product.name}`,
+        status: "success",
+        entityType: "product",
+        entityId: product._id?.toString(),
+      });
 
       return res.status(201).json({
         success: true,
@@ -104,6 +113,14 @@ export class ProductController {
       }
 
       const product = await productService.updateProduct(id, updateData);
+      await activityLogService.log({
+        req,
+        action: "admin.product.updated",
+        description: `Product updated: ${product.name}`,
+        status: "success",
+        entityType: "product",
+        entityId: id,
+      });
 
       return res.status(200).json({
         success: true,
@@ -123,6 +140,14 @@ export class ProductController {
       const { id } = req.params;
 
       await productService.deleteProduct(id);
+      await activityLogService.log({
+        req,
+        action: "admin.product.deleted",
+        description: "Product deleted",
+        status: "success",
+        entityType: "product",
+        entityId: id,
+      });
 
       return res.status(200).json({
         success: true,
@@ -169,6 +194,15 @@ export class ProductController {
       }
 
       const product = await productService.updateStock(id, quantity);
+      await activityLogService.log({
+        req,
+        action: "admin.inventory.updated",
+        description: `Stock updated for ${product.name} to ${product.quantity}`,
+        status: "success",
+        entityType: "product",
+        entityId: id,
+        metadata: { quantity },
+      });
 
       return res.status(200).json({
         success: true,

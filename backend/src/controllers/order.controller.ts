@@ -1,6 +1,7 @@
 import { OrderService } from "../services/order.service";
 import { CreateOrderDTO, UpdateOrderStatusDTO } from "../dtos/order.dto";
 import { Request, Response } from "express";
+import { activityLogService } from "../services/activity-log.service";
 
 const orderService = new OrderService();
 
@@ -26,6 +27,15 @@ export class OrderController {
       }
 
       const order = await orderService.createOrder(userId, parsedData.data);
+      await activityLogService.log({
+        req,
+        action: "order.created",
+        description: `Order created: ${order._id.toString()}`,
+        status: "success",
+        entityType: "order",
+        entityId: order._id.toString(),
+        metadata: { total: order.total },
+      });
 
       return res.status(201).json({
         success: true,
@@ -114,6 +124,15 @@ export class OrderController {
       }
 
       const order = await orderService.updateOrderStatus(id, parsedData.data);
+      await activityLogService.log({
+        req,
+        action: "admin.order.status_updated",
+        description: `Order status updated to ${order.status}`,
+        status: "success",
+        entityType: "order",
+        entityId: id,
+        metadata: { status: order.status },
+      });
 
       return res.status(200).json({
         success: true,
@@ -133,6 +152,14 @@ export class OrderController {
       const { id } = req.params;
 
       await orderService.deleteOrder(id);
+      await activityLogService.log({
+        req,
+        action: "admin.order.deleted",
+        description: "Order deleted",
+        status: "success",
+        entityType: "order",
+        entityId: id,
+      });
 
       return res.status(200).json({
         success: true,

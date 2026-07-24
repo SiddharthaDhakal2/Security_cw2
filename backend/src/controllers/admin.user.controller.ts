@@ -4,6 +4,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { HttpError } from "../errors/http-error";
 import { BCRYPT_SALT_ROUNDS } from "../config";
 import { AdminCreateUserDTO, AdminUpdateUserDTO } from "../dtos/admin.user.dto";
+import { activityLogService } from "../services/activity-log.service";
 const repo = new UserRepository();
 
 export class AdminUserController {
@@ -35,6 +36,14 @@ export class AdminUserController {
       const created = await repo.createUser(data);
       const obj = (created as any).toObject();
       delete obj.password;
+      await activityLogService.log({
+        req,
+        action: "admin.user.created",
+        description: `Admin created user: ${obj.email}`,
+        status: "success",
+        entityType: "user",
+        entityId: obj._id?.toString(),
+      });
 
       return res.status(201).json({
         success: true,
@@ -120,6 +129,14 @@ export class AdminUserController {
 
       const obj = (updated as any).toObject();
       delete obj.password;
+      await activityLogService.log({
+        req,
+        action: "admin.user.updated",
+        description: `Admin updated user: ${obj.email}`,
+        status: "success",
+        entityType: "user",
+        entityId: req.params.id,
+      });
 
       return res.status(200).json({
         success: true,
@@ -140,6 +157,14 @@ export class AdminUserController {
     try {
       const ok = await repo.deleteUser(req.params.id);
       if (!ok) throw new HttpError(404, "User not found");
+      await activityLogService.log({
+        req,
+        action: "admin.user.deleted",
+        description: "Admin deleted user",
+        status: "success",
+        entityType: "user",
+        entityId: req.params.id,
+      });
 
       return res.status(200).json({ success: true, message: "User deleted" });
     } catch (error: any) {

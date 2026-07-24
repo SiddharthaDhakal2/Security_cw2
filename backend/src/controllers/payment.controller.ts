@@ -4,6 +4,7 @@ import { OrderService } from "../services/order.service";
 import { KhaltiService } from "../services/khalti.service";
 import { HttpError } from "../errors/http-error";
 import { PaymentTransactionRepository } from "../repositories/payment-transaction.repository";
+import { activityLogService } from "../services/activity-log.service";
 
 const orderService = new OrderService();
 const khaltiService = new KhaltiService();
@@ -79,6 +80,18 @@ export class PaymentController {
         amount: order.total,
         status: "initiated",
       });
+      await activityLogService.log({
+        req,
+        action: "payment.initiated",
+        description: `Khalti payment initiated for order ${order._id.toString()}`,
+        status: "success",
+        entityType: "payment",
+        entityId: payment.pidx,
+        metadata: {
+          orderId: order._id.toString(),
+          amount: order.total,
+        },
+      });
 
       return res.status(201).json({
         success: true,
@@ -134,6 +147,18 @@ export class PaymentController {
         pidx: payment.pidx,
         amount: order.total,
         status: "initiated",
+      });
+      await activityLogService.log({
+        req,
+        action: "payment.retry_initiated",
+        description: `Khalti payment retry initiated for order ${order._id.toString()}`,
+        status: "success",
+        entityType: "payment",
+        entityId: payment.pidx,
+        metadata: {
+          orderId: order._id.toString(),
+          amount: order.total,
+        },
       });
 
       return res.status(200).json({
@@ -200,6 +225,15 @@ export class PaymentController {
           failureReason: "Payment PIDX does not match the latest order payment attempt",
           rawResponse: lookup as any,
         });
+        await activityLogService.log({
+          req,
+          action: "payment.invalid_pidx",
+          description: "Payment PIDX did not match the latest order payment attempt",
+          status: "failure",
+          entityType: "payment",
+          entityId: parsedData.data.pidx,
+          metadata: { orderId },
+        });
         throw new HttpError(400, "Payment reference does not match this order");
       }
 
@@ -214,6 +248,15 @@ export class PaymentController {
           khaltiStatus: lookup.status,
           failureReason: "Khalti purchase order id does not match order id",
           rawResponse: lookup as any,
+        });
+        await activityLogService.log({
+          req,
+          action: "payment.invalid_order_reference",
+          description: "Khalti purchase order id did not match order id",
+          status: "failure",
+          entityType: "payment",
+          entityId: parsedData.data.pidx,
+          metadata: { orderId, purchaseOrderId: lookup.purchase_order_id },
         });
         throw new HttpError(400, "Khalti order reference does not match this order");
       }
@@ -230,6 +273,15 @@ export class PaymentController {
           khaltiStatus: lookup.status,
           failureReason: "Khalti amount does not match order total",
           rawResponse: lookup as any,
+        });
+        await activityLogService.log({
+          req,
+          action: "payment.invalid_amount",
+          description: "Khalti payment amount did not match order total",
+          status: "failure",
+          entityType: "payment",
+          entityId: parsedData.data.pidx,
+          metadata: { orderId, khaltiAmount, orderTotal: order.total },
         });
         throw new HttpError(400, "Khalti payment amount does not match this order");
       }
@@ -248,6 +300,15 @@ export class PaymentController {
           khaltiStatus: lookup.status,
           failureReason: "Order was already paid",
           rawResponse: lookup as any,
+        });
+        await activityLogService.log({
+          req,
+          action: "payment.duplicate",
+          description: `Duplicate payment verification for order ${orderId}`,
+          status: "success",
+          entityType: "payment",
+          entityId: parsedData.data.pidx,
+          metadata: { orderId },
         });
 
         return res.status(200).json({
@@ -280,6 +341,21 @@ export class PaymentController {
         khaltiStatus: lookup.status,
         failureReason: isPaid ? undefined : `Khalti status: ${lookup.status}`,
         rawResponse: lookup as any,
+      });
+      await activityLogService.log({
+        req,
+        action: isPaid ? "payment.verified" : "payment.failed",
+        description: isPaid
+          ? `Payment verified for order ${orderId}`
+          : `Payment failed for order ${orderId}`,
+        status: isPaid ? "success" : "failure",
+        entityType: "payment",
+        entityId: parsedData.data.pidx,
+        metadata: {
+          orderId,
+          khaltiStatus: lookup.status,
+          transactionId: lookup.transaction_id,
+        },
       });
 
       return res.status(200).json({
