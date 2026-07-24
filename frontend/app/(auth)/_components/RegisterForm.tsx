@@ -7,9 +7,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RegisterData, registerSchema } from "../schema";
 import { handleRegister } from "@/lib/actions/auth-actions";
+import { useToast } from "@/components/ui/toast";
 
 export default function RegisterForm() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [errorMessage, setErrorMessage] = useState<string>("");
 
   const {
@@ -28,9 +30,12 @@ export default function RegisterForm() {
     startTransition(async () => {
       const res = await handleRegister(values);
       if (res.success) {
+        showToast("Account created successfully. Please log in.", "success");
         router.push("/login");
       } else {
-        setErrorMessage(res.message || "Registration failed. Please try again.");
+        const message = res.message || "Registration failed. Please try again.";
+        setErrorMessage(message);
+        showToast(message, "error");
       }
     });
   };

@@ -8,9 +8,11 @@ import { useRouter } from "next/navigation";
 import { LoginData, loginSchema } from "../schema";
 import { handleLogin, handleVerifyMfaLogin } from "@/lib/actions/auth-actions";
 import ForgotPasswordDialog from "./ForgotPasswordDialog";
+import { useToast } from "@/components/ui/toast";
 
 export default function LoginForm() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const [mfaEmail, setMfaEmail] = useState("");
@@ -33,6 +35,8 @@ export default function LoginForm() {
       localStorage.setItem("user", JSON.stringify(user));
     }
 
+    showToast("Login successful", "success");
+
     if (user.role === "admin") {
       router.replace("/admin");
     } else {
@@ -48,13 +52,16 @@ export default function LoginForm() {
       if (res.success && res.mfaRequired && res.email) {
         setMfaEmail(res.email);
         setMfaOtp("");
+        showToast("OTP sent to your email", "info");
         return;
       }
 
       if (res.success && res.token && res.data) {
         finishLogin(res.token, res.data);
       } else {
-        setErrorMessage(res.message || "Invalid email or password");
+        const message = res.message || "Invalid email or password";
+        setErrorMessage(message);
+        showToast(message, "error");
       }
     });
   };
@@ -67,7 +74,9 @@ export default function LoginForm() {
       if (res.success && res.token && res.data) {
         finishLogin(res.token, res.data);
       } else {
-        setErrorMessage(res.message || "Invalid OTP");
+        const message = res.message || "Invalid OTP";
+        setErrorMessage(message);
+        showToast(message, "error");
       }
     });
   };

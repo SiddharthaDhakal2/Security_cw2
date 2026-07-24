@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateProfile, changePassword, updateMfaPreference } from "@/lib/api/auth";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
+import { useToast } from "@/components/ui/toast";
 
 interface ProfileFormProps {
   user: {
@@ -20,6 +21,7 @@ interface ProfileFormProps {
 }
 
 export default function ProfileForm({ user }: ProfileFormProps) {
+  const { showToast } = useToast();
   // Initialize with user data from signup
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -168,6 +170,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       }
       
       setSaveMessage("Profile updated successfully!");
+      showToast("Profile updated successfully", "success");
       setTimeout(() => setSaveMessage(""), 3000);
     } catch (error: unknown) {
       console.error("Profile update error:", error);
@@ -183,6 +186,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       }
       
       setSaveMessage(errorMsg);
+      showToast(errorMsg, "error");
     } finally {
       setIsSaving(false);
     }
@@ -235,6 +239,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       });
 
       setPasswordMessage("Password updated successfully!");
+      showToast("Password updated successfully", "success");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -253,6 +258,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       }
 
       setPasswordMessage(errorMsg);
+      showToast(errorMsg, "error");
     } finally {
       setIsChangingPassword(false);
     }
@@ -279,6 +285,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       setMfaPassword("");
       setMfaMessage(response.message);
       setMfaMessageType("success");
+      showToast(response.message, "success");
 
       if (typeof window !== "undefined") {
         document.cookie = `user=${JSON.stringify(response.data)}; path=/`;
@@ -293,6 +300,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
 
       setMfaMessage(errorMsg);
       setMfaMessageType("error");
+      showToast(errorMsg, "error");
     } finally {
       setIsUpdatingMfa(false);
     }

@@ -6,6 +6,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { handleLogout as serverHandleLogout } from "@/lib/actions/auth-actions";
 import LogoutDialog from "@/components/LogoutDialog";
+import { useToast } from "@/components/ui/toast";
 
 export default function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -13,6 +14,7 @@ export default function Header() {
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { showToast } = useToast();
 
   const isPathActive = (href: string) => {
     if (href === "/home") {
@@ -71,6 +73,7 @@ export default function Header() {
       }
       setIsLoggedIn(false);
       setShowLogoutDialog(false);
+      showToast("Logged out successfully", "success");
       router.push("/login");
     });
   };

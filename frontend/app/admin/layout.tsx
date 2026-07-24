@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { handleLogout } from '@/lib/actions/auth-actions';
 import { useState, useTransition } from 'react';
 import LogoutDialog from '@/components/LogoutDialog';
+import { useToast } from '@/components/ui/toast';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const { showToast } = useToast();
 
   const isActive = (path: string) => {
     if (path === '/admin') {
@@ -44,7 +46,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           }
         }
         setShowLogoutDialog(false);
+        showToast('Logged out successfully', 'success');
         router.push('/login');
+      } else {
+        showToast(result.message || 'Logout failed', 'error');
       }
     });
   };

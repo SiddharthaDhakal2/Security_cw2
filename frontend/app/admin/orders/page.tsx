@@ -64,6 +64,7 @@ export default function AdminOrders() {
       if (selectedOrder && selectedOrder._id === orderId) {
         setSelectedOrder(updated);
       }
+      showToast('Order status updated successfully', 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to update order';
       showToast(`Error: ${msg}`, 'error');

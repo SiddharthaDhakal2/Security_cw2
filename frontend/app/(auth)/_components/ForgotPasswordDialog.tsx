@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import axiosInstance from "@/lib/api/axios";
 import { AxiosError } from "axios";
+import { useToast } from "@/components/ui/toast";
 
 const emailSchema = z.object({
   email: z.string().email("Invalid email"),
@@ -45,6 +46,7 @@ interface ForgotPasswordDialogProps {
 }
 
 export default function ForgotPasswordDialog({ isOpen, onClose }: ForgotPasswordDialogProps) {
+  const { showToast } = useToast();
   const [step, setStep] = useState<"email" | "otp" | "password">("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -92,13 +94,17 @@ export default function ForgotPasswordDialog({ isOpen, onClose }: ForgotPassword
     try {
       const response = await axiosInstance.post("/api/auth/forgot-password/send-otp", data);
       setEmail(data.email);
-      setSuccessMessage(response.data.message || "OTP sent to your email");
+      const message = response.data.message || "OTP sent to your email";
+      setSuccessMessage(message);
+      showToast(message, "success");
       setStep("otp");
       otpForm.reset();
       setRemainingSeconds(120);
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
-      setErrorMessage(axiosError.response?.data?.message || "Failed to send OTP");
+      const message = axiosError.response?.data?.message || "Failed to send OTP";
+      setErrorMessage(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -110,6 +116,7 @@ export default function ForgotPasswordDialog({ isOpen, onClose }: ForgotPassword
 
     if (remainingSeconds <= 0) {
       setErrorMessage("OTP has expired. Please request a new one.");
+      showToast("OTP has expired. Please request a new one.", "warning");
       return;
     }
 
@@ -121,12 +128,16 @@ export default function ForgotPasswordDialog({ isOpen, onClose }: ForgotPassword
         otp: data.otp,
       });
       setOtp(data.otp);
-      setSuccessMessage(response.data.message || "OTP verified successfully");
+      const message = response.data.message || "OTP verified successfully";
+      setSuccessMessage(message);
+      showToast(message, "success");
       setStep("password");
       passwordForm.reset();
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
-      setErrorMessage(axiosError.response?.data?.message || "Failed to verify OTP");
+      const message = axiosError.response?.data?.message || "Failed to verify OTP";
+      setErrorMessage(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -139,12 +150,16 @@ export default function ForgotPasswordDialog({ isOpen, onClose }: ForgotPassword
 
     try {
       const response = await axiosInstance.post("/api/auth/forgot-password/send-otp", { email });
-      setSuccessMessage(response.data.message || "OTP resent to your email");
+      const message = response.data.message || "OTP resent to your email";
+      setSuccessMessage(message);
+      showToast(message, "success");
       otpForm.reset();
       setRemainingSeconds(120);
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
-      setErrorMessage(axiosError.response?.data?.message || "Failed to resend OTP");
+      const message = axiosError.response?.data?.message || "Failed to resend OTP";
+      setErrorMessage(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -162,7 +177,9 @@ export default function ForgotPasswordDialog({ isOpen, onClose }: ForgotPassword
         newPassword: data.newPassword,
         confirmPassword: data.confirmPassword,
       });
-      setSuccessMessage(response.data.message || "Password reset successfully");
+      const message = response.data.message || "Password reset successfully";
+      setSuccessMessage(message);
+      showToast(message, "success");
       setTimeout(() => {
         onClose();
         setStep("email");
@@ -170,7 +187,9 @@ export default function ForgotPasswordDialog({ isOpen, onClose }: ForgotPassword
       }, 2000);
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message?: string }>;
-      setErrorMessage(axiosError.response?.data?.message || "Failed to reset password");
+      const message = axiosError.response?.data?.message || "Failed to reset password";
+      setErrorMessage(message);
+      showToast(message, "error");
     } finally {
       setLoading(false);
     }

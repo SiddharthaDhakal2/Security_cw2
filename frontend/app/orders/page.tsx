@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 import { getMyOrders, Order } from "@/lib/api/orders";
 import { useRouter } from "next/navigation";
 import { retryKhaltiPayment } from "@/lib/api/payments";
+import { useToast } from "@/components/ui/toast";
 
 export default function OrdersPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export default function OrdersPage() {
       setRetryingOrderId(orderId);
       setError(null);
       const payment = await retryKhaltiPayment(orderId);
+      showToast("Redirecting to Khalti payment", "info");
 
       if (typeof window !== "undefined") {
         localStorage.setItem("pendingOrderId", payment.orderId);
@@ -87,6 +90,7 @@ export default function OrdersPage() {
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : "Failed to retry payment";
       setError(errMessage);
+      showToast(errMessage, "error");
     } finally {
       setRetryingOrderId(null);
     }
