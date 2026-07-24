@@ -1,4 +1,4 @@
-import axios, { AxiosError } from "axios";
+import { AxiosError } from "axios";
 import axiosInstance from "./axios";
 import { API } from "./endpoints";
 
@@ -23,14 +23,17 @@ export interface RegisterResponse {
     email: string;
     role: "user" | "admin";
     image?: string;
+    mfaEnabled?: boolean;
   };
 }
 
 export interface LoginResponse {
   success: boolean;
   message: string;
-  token: string;
-  data: {
+  mfaRequired?: boolean;
+  email?: string;
+  token?: string;
+  data?: {
     _id: string;
     name: string;
     email: string;
@@ -38,6 +41,7 @@ export interface LoginResponse {
     phone?: string;
     address?: string;
     image?: string;
+    mfaEnabled?: boolean;
   };
 }
 
@@ -60,6 +64,7 @@ export interface UpdateProfileResponse {
     phone?: string;
     address?: string;
     image?: string;
+    mfaEnabled?: boolean;
   };
 }
 
@@ -86,6 +91,28 @@ export const loginUser = async (data: LoginFormData): Promise<LoginResponse> => 
     return res.data;
   } catch (err: unknown) {
     let message = "Login failed";
+
+    if (err instanceof AxiosError && err.response) {
+      message = err.response.data?.message || message;
+    } else if (err instanceof Error) {
+      message = err.message;
+    }
+
+    throw new Error(message);
+  }
+};
+
+export interface VerifyMfaLoginData {
+  email: string;
+  otp: string;
+}
+
+export const verifyMfaLogin = async (data: VerifyMfaLoginData): Promise<LoginResponse> => {
+  try {
+    const res = await axiosInstance.post<LoginResponse>(API.AUTH.MFA_VERIFY_LOGIN, data);
+    return res.data;
+  } catch (err: unknown) {
+    let message = "MFA verification failed";
 
     if (err instanceof AxiosError && err.response) {
       message = err.response.data?.message || message;
@@ -144,6 +171,40 @@ export const changePassword = async (userId: string, data: ChangePasswordData): 
     return res.data;
   } catch (err: unknown) {
     let message = "Password change failed";
+
+    if (err instanceof AxiosError && err.response) {
+      message = err.response.data?.message || message;
+    } else if (err instanceof Error) {
+      message = err.message;
+    }
+
+    throw new Error(message);
+  }
+};
+
+export interface UpdateMfaData {
+  enabled: boolean;
+  currentPassword: string;
+}
+
+export const updateMfaPreference = async (
+  userId: string,
+  data: UpdateMfaData
+): Promise<UpdateProfileResponse> => {
+  try {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const res = await axiosInstance.put<UpdateProfileResponse>(
+      `${API.AUTH.UPDATE_MFA}/${userId}`,
+      data,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return res.data;
+  } catch (err: unknown) {
+    let message = "MFA update failed";
 
     if (err instanceof AxiosError && err.response) {
       message = err.response.data?.message || message;

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { updateProfile, changePassword } from "@/lib/api/auth";
+import { updateProfile, changePassword, updateMfaPreference } from "@/lib/api/auth";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
 
 interface ProfileFormProps {
@@ -15,6 +15,7 @@ interface ProfileFormProps {
     phone?: string;
     address?: string;
     image?: string;
+    mfaEnabled?: boolean;
   };
 }
 
@@ -33,6 +34,12 @@ export default function ProfileForm({ user }: ProfileFormProps) {
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [imageError, setImageError] = useState("");
+  const [mfaEnabled, setMfaEnabled] = useState(Boolean(user.mfaEnabled));
+  const [mfaPassword, setMfaPassword] = useState("");
+  const [mfaMessage, setMfaMessage] = useState("");
+  const [mfaMessageType, setMfaMessageType] = useState<"success" | "error">("success");
+  const [mfaPasswordError, setMfaPasswordError] = useState("");
+  const [isUpdatingMfa, setIsUpdatingMfa] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -70,11 +77,16 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     setProfileImage(null);
     setProfileImageFile(null);
     setSaveMessage("");
+    setMfaEnabled(Boolean(user.mfaEnabled));
+    setMfaPassword("");
+    setMfaMessage("");
+    setMfaMessageType("success");
+    setMfaPasswordError("");
     setNameError("");
     setEmailError("");
     setPhoneError("");
     setImageError("");
-  }, [user._id, user.name, user.email, user.phone, user.address]);
+  }, [user._id, user.name, user.email, user.phone, user.address, user.mfaEnabled]);
 
   const handleSaveChanges = async () => {
     try {
@@ -197,8 +209,9 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         return;
       }
 
-      if (newPassword.length < 6) {
-        setNewPasswordError("New password must be at least 6 characters");
+      const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+      if (!strongPasswordPattern.test(newPassword)) {
+        setNewPasswordError("Use 8+ characters with uppercase, lowercase, number, and symbol");
         setIsChangingPassword(false);
         return;
       }
@@ -242,6 +255,46 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       setPasswordMessage(errorMsg);
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+  const handleUpdateMfa = async (enabled: boolean) => {
+    try {
+      setIsUpdatingMfa(true);
+      setMfaMessage("");
+      setMfaPasswordError("");
+
+      if (!mfaPassword.trim()) {
+        setMfaPasswordError("Current password is required");
+        setIsUpdatingMfa(false);
+        return;
+      }
+
+      const response = await updateMfaPreference(user._id, {
+        enabled,
+        currentPassword: mfaPassword,
+      });
+
+      setMfaEnabled(Boolean(response.data.mfaEnabled));
+      setMfaPassword("");
+      setMfaMessage(response.message);
+      setMfaMessageType("success");
+
+      if (typeof window !== "undefined") {
+        document.cookie = `user=${JSON.stringify(response.data)}; path=/`;
+        localStorage.setItem("user", JSON.stringify(response.data));
+      }
+    } catch (error: unknown) {
+      let errorMsg = "Failed to update MFA";
+
+      if (error instanceof Error && error.message) {
+        errorMsg = error.message;
+      }
+
+      setMfaMessage(errorMsg);
+      setMfaMessageType("error");
+    } finally {
+      setIsUpdatingMfa(false);
     }
   };
 
@@ -496,6 +549,59 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         </div>
       </form>
     </div>
+
+      {/* Multi-Factor Authentication */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">Multi-Factor Authentication</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 p-4">
+            <div>
+              <p className="font-medium text-gray-900">Email OTP on login</p>
+              <p className="text-sm text-gray-600">
+                {mfaEnabled ? "Enabled" : "Disabled"}
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                mfaEnabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"
+              }`}
+            >
+              {mfaEnabled ? "On" : "Off"}
+            </span>
+          </div>
+
+          <div>
+            <label htmlFor="mfaPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              Current Password
+            </label>
+            <Input
+              id="mfaPassword"
+              type="password"
+              value={mfaPassword}
+              onChange={(e) => setMfaPassword(e.target.value)}
+              placeholder="Enter your password"
+              className="w-full"
+            />
+            {mfaPasswordError && (
+              <p className="text-sm text-red-600 mt-1">{mfaPasswordError}</p>
+            )}
+          </div>
+
+          <Button
+            onClick={() => handleUpdateMfa(!mfaEnabled)}
+            disabled={isUpdatingMfa}
+            className="bg-green-700 hover:bg-green-800 text-white disabled:opacity-50"
+          >
+            {isUpdatingMfa ? "Updating..." : mfaEnabled ? "Disable MFA" : "Enable MFA"}
+          </Button>
+
+          {mfaMessage && (
+            <p className={`text-sm ${mfaMessageType === "success" ? "text-green-600" : "text-red-600"}`}>
+              {mfaMessage}
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

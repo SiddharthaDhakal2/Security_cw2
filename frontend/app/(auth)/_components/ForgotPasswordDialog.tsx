@@ -15,10 +15,20 @@ const otpSchema = z.object({
   otp: z.string().min(6, "OTP must be 6 digits").max(6, "OTP must be 6 digits"),
 });
 
+const passwordMessage =
+  "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
+const strongPasswordSchema = z
+  .string()
+  .min(8, passwordMessage)
+  .regex(/[a-z]/, passwordMessage)
+  .regex(/[A-Z]/, passwordMessage)
+  .regex(/[0-9]/, passwordMessage)
+  .regex(/[^A-Za-z0-9]/, passwordMessage);
+
 const passwordSchema = z
   .object({
-    newPassword: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters"),
+    newPassword: strongPasswordSchema,
+    confirmPassword: strongPasswordSchema,
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
     message: "Passwords do not match",

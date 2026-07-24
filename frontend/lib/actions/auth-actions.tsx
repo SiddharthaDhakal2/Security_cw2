@@ -1,6 +1,6 @@
 "use server";
 
-import { loginUser, registerUser } from "@/lib/api/auth";
+import { loginUser, registerUser, verifyMfaLogin } from "@/lib/api/auth";
 import { cookies } from "next/headers";
 
 type RegisterResponse = {
@@ -26,8 +26,11 @@ type LoginResponse = {
     phone?: string;
     address?: string;
     image?: string;
+    mfaEnabled?: boolean;
   };
   token?: string;
+  mfaRequired?: boolean;
+  email?: string;
 };
 
 export const handleRegister = async (formData: { name: string; email: string; password: string; confirmPassword: string }): Promise<RegisterResponse> => {
@@ -50,7 +53,23 @@ export const handleLogin = async (formData: { email: string; password: string })
   try {
     const res = await loginUser(formData);
 
+    if (res.mfaRequired) {
+      return {
+        success: true,
+        message: res.message,
+        mfaRequired: true,
+        email: res.email,
+      };
+    }
+
     const cookieStore = await cookies();
+
+    if (!res.token || !res.data) {
+      return {
+        success: false,
+        message: "Login response was missing authentication data",
+      };
+    }
 
     cookieStore.set("token", res.token, {
       httpOnly: true,
@@ -73,6 +92,49 @@ export const handleLogin = async (formData: { email: string; password: string })
       message: res.message,
       data: res.data,
       token: res.token, // Return token to be stored in localStorage
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : "Something went wrong",
+    };
+  }
+};
+
+export const handleVerifyMfaLogin = async (formData: { email: string; otp: string }): Promise<LoginResponse> => {
+  try {
+    const res = await verifyMfaLogin(formData);
+
+    const cookieStore = await cookies();
+
+    if (!res.token || !res.data) {
+      return {
+        success: false,
+        message: "MFA response was missing authentication data",
+      };
+    }
+
+    cookieStore.set("token", res.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+
+    cookieStore.set("user", JSON.stringify(res.data), {
+      httpOnly: false,
+      path: "/",
+    });
+
+    cookieStore.set("role", res.data.role, {
+      httpOnly: false,
+      path: "/",
+    });
+
+    return {
+      success: true,
+      message: res.message,
+      data: res.data,
+      token: res.token,
     };
   } catch (err: unknown) {
     return {
