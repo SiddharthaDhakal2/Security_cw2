@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getMyOrders, Order } from "@/lib/api/orders";
 import { useRouter } from "next/navigation";
+import { retryKhaltiPayment } from "@/lib/api/payments";
 
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryingOrderId, setRetryingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -55,6 +57,38 @@ export default function OrdersPage() {
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getPaymentStatusColor = (status: Order["paymentStatus"]) => {
+    switch (status) {
+      case "paid":
+        return "bg-green-100 text-green-800";
+      case "failed":
+        return "bg-red-100 text-red-800";
+      case "unpaid":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const handleRetryPayment = async (orderId: string) => {
+    try {
+      setRetryingOrderId(orderId);
+      setError(null);
+      const payment = await retryKhaltiPayment(orderId);
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("pendingOrderId", payment.orderId);
+      }
+
+      window.location.href = payment.paymentUrl;
+    } catch (err) {
+      const errMessage = err instanceof Error ? err.message : "Failed to retry payment";
+      setError(errMessage);
+    } finally {
+      setRetryingOrderId(null);
     }
   };
 
@@ -126,13 +160,22 @@ export default function OrdersPage() {
                       })}
                     </p>
                   </div>
-                  <span
-                    className={`inline-block px-4 py-2 rounded-full text-sm font-semibold capitalize ${getStatusColor(
-                      order.status
-                    )}`}
-                  >
-                    {order.status}
-                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`inline-block px-4 py-2 rounded-full text-sm font-semibold capitalize ${getStatusColor(
+                        order.status
+                      )}`}
+                    >
+                      {order.status}
+                    </span>
+                    <span
+                      className={`inline-block px-4 py-2 rounded-full text-sm font-semibold capitalize ${getPaymentStatusColor(
+                        order.paymentStatus
+                      )}`}
+                    >
+                      Payment {order.paymentStatus}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="border-t border-gray-200 pt-4 mb-4">
@@ -161,6 +204,16 @@ export default function OrdersPage() {
                     <p className="text-2xl font-bold text-green-600">
                       Rs {order.total.toFixed(2)}
                     </p>
+                    {order.paymentStatus !== "paid" && order.paymentMethod === "khalti" && (
+                      <button
+                        type="button"
+                        onClick={() => handleRetryPayment(order._id)}
+                        disabled={retryingOrderId === order._id}
+                        className="mt-3 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {retryingOrderId === order._id ? "Starting..." : "Retry Payment"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

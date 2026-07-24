@@ -41,17 +41,23 @@ export default function KhaltiPaymentPage() {
       try {
         const result = await verifyKhaltiPayment(pidx, orderId || undefined);
 
-        if (typeof window !== "undefined") {
-          localStorage.removeItem("pendingOrderId");
-          localStorage.setItem(getCartStorageKey(), JSON.stringify([]));
-        }
-
         if (result.paid) {
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("pendingOrderId");
+            localStorage.removeItem("pendingOrderData");
+            localStorage.removeItem("pendingOrderSummary");
+            localStorage.setItem(getCartStorageKey(), JSON.stringify([]));
+          }
+
           setStatus("success");
           setMessage("Payment successful. Redirecting to your orders...");
           showToast("Payment successful!", "success");
           router.replace("/orders");
         } else {
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("pendingOrderId");
+          }
+
           setStatus("failed");
           setMessage("Payment not completed. Please try again.");
           showToast("Payment not completed", "warning");
