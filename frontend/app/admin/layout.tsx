@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Package, Warehouse, ShoppingBag, Users, LogOut, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Package, Warehouse, ShoppingBag, Users, LogOut, CreditCard, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { handleLogout } from '@/lib/actions/auth-actions';
 import { useState, useTransition } from 'react';
@@ -61,6 +61,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { path: '/admin/orders', label: 'Orders', icon: ShoppingBag },
     { path: '/admin/payments', label: 'Payments', icon: CreditCard },
     { path: '/admin/users', label: 'Users Information', icon: Users },
+    { path: '/admin/activity-logs', label: 'Activity Logging', icon: ClipboardList },
   ];
 
   return (
