@@ -3,6 +3,7 @@ import { URL } from "url";
 import { IOrder } from "../models/order.model";
 import { HttpError } from "../errors/http-error";
 import {
+  KHALTI_API_BASE_URL,
   KHALTI_SECRET_KEY,
   KHALTI_RETURN_URL,
   KHALTI_WEBSITE_URL,
@@ -16,11 +17,12 @@ interface KhaltiInitiateResponse {
 
 interface KhaltiLookupResponse {
   status: string;
+  pidx?: string;
   transaction_id?: string;
   purchase_order_id?: string;
+  total_amount?: number;
+  amount?: number;
 }
-
-const KHALTI_BASE_URL = "https://a.khalti.com/api/v2/epayment";
 
 const khaltiRequest = async <T>(path: string, payload: Record<string, unknown>) => {
   if (!KHALTI_SECRET_KEY) {
@@ -28,7 +30,7 @@ const khaltiRequest = async <T>(path: string, payload: Record<string, unknown>) 
   }
 
   return new Promise<T>((resolve, reject) => {
-    const url = new URL(`${KHALTI_BASE_URL}${path}`);
+    const url = new URL(`${KHALTI_API_BASE_URL.replace(/\/$/, "")}${path}`);
     const requestBody = JSON.stringify(payload);
 
     const req = https.request(
