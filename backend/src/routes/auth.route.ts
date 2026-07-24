@@ -8,8 +8,10 @@ const router = Router();
 
 router.post("/register", authController.register)
 router.post("/login", authController.login)
+router.post("/login/mfa/verify", authController.verifyMfaLogin)
 router.put("/profile/:id", requireAuth, uploadUserImage.single("image"), authController.updateProfile)
 router.put("/change-password/:id", requireAuth, authController.changePassword)
+router.put("/mfa/:id", requireAuth, authController.updateMfaPreference)
 router.delete("/delete-account/:id", requireAuth, authController.deleteAccount)
 router.post("/forgot-password/send-otp", authController.sendOtp)
 router.post("/forgot-password/verify-otp", authController.verifyOtp)

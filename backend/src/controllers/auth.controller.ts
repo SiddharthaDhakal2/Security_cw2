@@ -1,9 +1,12 @@
 import { UserService } from "../services/user.service";
-import { CreateUserDTO, LoginUserDTO } from "../dtos/user.dto";
+import { CreateUserDTO, LoginUserDTO, MfaPreferenceDTO, MfaVerifyDTO } from "../dtos/user.dto";
 import { Request, Response } from "express";
 import nodemailer from "nodemailer";
 
 const userService = new UserService();
+const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+const strongPasswordMessage =
+  "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -30,7 +33,7 @@ function generateOtp(): string {
 }
 
 // Send OTP email
-async function sendOtpEmail(email: string, otp: string): Promise<void> {
+async function sendOtpEmail(email: string, otp: string, purpose = "Password Reset"): Promise<void> {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
     throw new Error("Email credentials not configured. Please set EMAIL_USER and EMAIL_PASSWORD in .env file");
   }
@@ -38,12 +41,12 @@ async function sendOtpEmail(email: string, otp: string): Promise<void> {
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: "Your Password Reset OTP",
+    subject: `Your ${purpose} OTP`,
     html: `
-      <h2>Password Reset Request</h2>
-      <p>Your OTP for password reset is:</p>
+      <h2>${purpose} Request</h2>
+      <p>Your OTP is:</p>
       <h1 style="color: #22863a; letter-spacing: 2px;">${otp}</h1>
-      <p>This OTP is valid for 2 minutes.</p>
+      <p>This OTP is valid for a short time.</p>
       <p>If you didn't request this, please ignore this email.</p>
     `,
   };
@@ -107,13 +110,88 @@ export class AuthController {
         });
       }
 
-      const { token, user } = await userService.loginUser(parsedData.data);
+      const loginResult = await userService.loginUser(parsedData.data);
+
+      if (loginResult.mfaRequired) {
+        await sendOtpEmail(loginResult.email!, loginResult.otp!, "Login Verification");
+
+        return res.status(200).json({
+          success: true,
+          message: "MFA OTP sent to your email",
+          mfaRequired: true,
+          email: loginResult.email,
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        mfaRequired: false,
+        token: loginResult.token,
+        data: loginResult.user,
+      });
+    } catch (error: any) {
+      return res.status(error.statusCode ?? 500).json({
+        success: false,
+        message: error.message || "Internal Server Error",
+      });
+    }
+  }
+
+  async verifyMfaLogin(req: Request, res: Response) {
+    try {
+      const parsedData = MfaVerifyDTO.safeParse(req.body);
+
+      if (!parsedData.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: parsedData.error,
+        });
+      }
+
+      const { token, user } = await userService.verifyMfaLogin(
+        parsedData.data.email,
+        parsedData.data.otp
+      );
 
       return res.status(200).json({
         success: true,
         message: "Login successful",
         token,
         data: user,
+      });
+    } catch (error: any) {
+      return res.status(error.statusCode ?? 500).json({
+        success: false,
+        message: error.message || "Internal Server Error",
+      });
+    }
+  }
+
+  async updateMfaPreference(req: Request, res: Response) {
+    try {
+      const parsedData = MfaPreferenceDTO.safeParse(req.body);
+
+      if (!parsedData.success) {
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors: parsedData.error,
+        });
+      }
+
+      const updated = await userService.updateMfaPreference(
+        (req as any).user,
+        req.params.id,
+        parsedData.data.enabled,
+        parsedData.data.currentPassword
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: parsedData.data.enabled ? "MFA enabled" : "MFA disabled",
+        data: updated,
       });
     } catch (error: any) {
       return res.status(error.statusCode ?? 500).json({
@@ -315,10 +393,10 @@ export class AuthController {
         });
       }
 
-      if (newPassword.length < 6) {
+      if (!strongPasswordPattern.test(newPassword)) {
         return res.status(400).json({
           success: false,
-          message: "Password must be at least 6 characters",
+          message: strongPasswordMessage,
         });
       }
 
