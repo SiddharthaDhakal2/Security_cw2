@@ -16,7 +16,13 @@ const UserSchema: Schema = new Schema<UserType>(
             default: 'user',
         },
         resetOtp: { type: String, default: null },
-        resetOtpExpiry: { type: Date, default: null }
+        resetOtpExpiry: { type: Date, default: null },
+        mfaEnabled: { type: Boolean, default: false },
+        mfaOtp: { type: String, default: null },
+        mfaOtpExpiry: { type: Date, default: null },
+        failedLoginAttempts: { type: Number, default: 0 },
+        lockedUntil: { type: Date, default: null },
+        lastFailedLoginAt: { type: Date, default: null }
     },
     {
         timestamps: true, 
