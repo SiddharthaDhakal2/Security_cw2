@@ -33,6 +33,10 @@ export class OrderService {
     return orderRepository.getAllOrders();
   }
 
+  async getAllPaymentRecords() {
+    return orderRepository.getAllPaymentRecords();
+  }
+
   async updateOrderStatus(id: string, data: UpdateOrderStatusDTO) {
     const order = await orderRepository.updateOrderStatus(id, data);
     if (!order) {
@@ -80,5 +84,9 @@ export class OrderService {
     }
 
     return updated;
+  }
+
+  async applyStockForPaidOrder(orderId: string) {
+    await orderRepository.applyStockForOrder(orderId);
   }
 }

@@ -19,6 +19,7 @@ export interface IOrder extends Document {
   paymentPidx?: string;
   paymentReference?: string;
   paidAt?: Date;
+  stockApplied: boolean;
   customerName: string;
   customerEmail: string;
   phone: string;
@@ -65,6 +66,7 @@ const OrderSchema: Schema = new Schema<IOrder>(
     paymentPidx: { type: String },
     paymentReference: { type: String },
     paidAt: { type: Date },
+    stockApplied: { type: Boolean, default: false },
     customerName: { type: String, required: true },
     customerEmail: { type: String, required: true },
     phone: { type: String, required: true },

@@ -80,13 +80,19 @@ export class OrderRepository {
   }
 
   async getOrdersByUserId(userId: string): Promise<IOrder[]> {
-    return OrderModel.find({ userId, paymentStatus: "paid" })
+    return OrderModel.find({ userId })
       .sort({ createdAt: -1 })
       .populate("items.productId");
   }
 
   async getAllOrders(): Promise<IOrder[]> {
     return OrderModel.find({ paymentStatus: "paid" })
+      .sort({ createdAt: -1 })
+      .populate("items.productId");
+  }
+
+  async getAllPaymentRecords(): Promise<IOrder[]> {
+    return OrderModel.find()
       .sort({ createdAt: -1 })
       .populate("items.productId");
   }
@@ -127,6 +133,10 @@ export class OrderRepository {
       throw new HttpError(404, "Order not found");
     }
 
+    if (order.stockApplied) {
+      return;
+    }
+
     const items = order.items.map((item) => ({
       productId: item.productId.toString(),
       name: item.name,
@@ -136,5 +146,6 @@ export class OrderRepository {
     }));
 
     await this.decrementStock(items);
+    await OrderModel.findByIdAndUpdate(orderId, { stockApplied: true });
   }
 }
