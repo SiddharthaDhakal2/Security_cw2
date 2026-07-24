@@ -17,6 +17,7 @@ export interface Order {
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   paymentMethod?: "khalti" | "esewa";
   paymentStatus: "unpaid" | "paid" | "failed";
+  paymentPidx?: string;
   paymentReference?: string;
   paidAt?: string;
   customerName: string;
