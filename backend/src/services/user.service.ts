@@ -5,7 +5,6 @@ import { UserRepository } from "../repositories/user.repository";
 import { HttpError } from "../errors/http-error";
 import {
   JWT_ACCESS_EXPIRES_IN,
-  JWT_EXPIRES_IN,
   JWT_REFRESH_EXPIRES_IN,
   JWT_REFRESH_SECRET,
   JWT_SECRET,
@@ -18,6 +17,12 @@ import {
   isStrongPassword,
   passwordPolicyMessage,
 } from "../utils/password-policy";
+import {
+  decryptSensitiveUserFields,
+  decryptValue,
+  encryptValue,
+  encryptSensitiveUserFields,
+} from "../utils/encryption";
 
 const userRepository = new UserRepository();
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
@@ -26,18 +31,20 @@ const MFA_OTP_MINUTES = 5;
 
 const toPublicUser = (user: any) => {
   const userObj = user?.toObject ? user.toObject() : { ...user };
-  delete userObj.password;
-  delete userObj.resetOtp;
-  delete userObj.resetOtpExpiry;
-  delete userObj.mfaOtp;
-  delete userObj.mfaOtpExpiry;
-  delete userObj.failedLoginAttempts;
-  delete userObj.lockedUntil;
-  delete userObj.lastFailedLoginAt;
-  delete userObj.passwordHistory;
-  delete userObj.passwordChangedAt;
-  delete userObj.passwordExpiresAt;
-  return userObj;
+  const decrypted = decryptSensitiveUserFields(userObj);
+  const safeUser = { ...decrypted };
+  delete safeUser.password;
+  delete safeUser.resetOtp;
+  delete safeUser.resetOtpExpiry;
+  delete safeUser.mfaOtp;
+  delete safeUser.mfaOtpExpiry;
+  delete safeUser.failedLoginAttempts;
+  delete safeUser.lockedUntil;
+  delete safeUser.lastFailedLoginAt;
+  delete safeUser.passwordHistory;
+  delete safeUser.passwordChangedAt;
+  delete safeUser.passwordExpiresAt;
+  return safeUser;
 };
 
 export class UserService {
@@ -57,7 +64,9 @@ export class UserService {
       passwordExpiresAt: getPasswordExpiryDate(),
     };
 
-    const newUser = await userRepository.createUser(userData as any);
+    const encryptedUserData = encryptSensitiveUserFields(userData);
+
+    const newUser = await userRepository.createUser(encryptedUserData as any);
 
     return toPublicUser(newUser);
   }
@@ -112,7 +121,7 @@ export class UserService {
       throw new HttpError(
         423,
         `Account locked. Try again after ${user.lockedUntil.toLocaleString()}`
-      );
+      if (decryptValue(user.mfaOtp) !== otp) {
     }
 
     const passwordExpiresAt =
@@ -155,7 +164,7 @@ export class UserService {
     if (user.mfaEnabled) {
       const otp = this.generateOtp();
       await userRepository.updateUser(user._id.toString(), {
-        mfaOtp: otp,
+        mfaOtp: encryptValue(otp),
         mfaOtpExpiry: new Date(Date.now() + MFA_OTP_MINUTES * 60 * 1000),
       } as any);
 
@@ -180,7 +189,7 @@ export class UserService {
       throw new HttpError(400, "MFA is not enabled for this account");
     }
 
-    if (user.mfaOtp !== otp) {
+    if (decryptValue(user.mfaOtp) !== otp) {
       throw new HttpError(400, "Invalid OTP");
     }
 
@@ -290,7 +299,8 @@ export class UserService {
     }
   }
 
-  const updated = await userRepository.updateUser(id, updateData);
+  const encryptedUpdateData = encryptSensitiveUserFields(updateData);
+  const updated = await userRepository.updateUser(id, encryptedUpdateData);
   if (!updated) throw new HttpError(404, "User not found");
 
   return toPublicUser(updated);

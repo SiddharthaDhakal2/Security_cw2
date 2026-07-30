@@ -5,6 +5,7 @@ import nodemailer from "nodemailer";
 import { activityLogService } from "../services/activity-log.service";
 import { isStrongPassword, passwordPolicyMessage } from "../utils/password-policy";
 import { JWT_ACCESS_MAX_AGE_SECONDS, JWT_REFRESH_MAX_AGE_SECONDS } from "../config";
+import { decryptValue, encryptValue } from "../utils/encryption";
 
 const userService = new UserService();
 
@@ -493,7 +494,7 @@ export class AuthController {
       const otpExpiry = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
 
       await userService.updateUser(user._id.toString(), {
-        resetOtp: otp,
+        resetOtp: encryptValue(otp),
         resetOtpExpiry: otpExpiry,
       });
 
@@ -539,7 +540,7 @@ export class AuthController {
         });
       }
 
-      if (user.resetOtp !== otp) {
+      if (decryptValue(user.resetOtp) !== otp) {
         return res.status(400).json({
           success: false,
           message: "Invalid OTP",
@@ -599,7 +600,7 @@ export class AuthController {
         });
       }
 
-      if (user.resetOtp !== otp) {
+        if (decryptValue(user.resetOtp) !== otp) {
         return res.status(400).json({
           success: false,
           message: "Invalid OTP",
