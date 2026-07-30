@@ -121,7 +121,7 @@ export class UserService {
       throw new HttpError(
         423,
         `Account locked. Try again after ${user.lockedUntil.toLocaleString()}`
-      if (decryptValue(user.mfaOtp) !== otp) {
+      );
     }
 
     const passwordExpiresAt =

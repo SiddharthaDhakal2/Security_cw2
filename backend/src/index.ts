@@ -13,6 +13,8 @@ import paymentRoutes from "./routes/payment.route";
 import activityLogRoutes from "./routes/activity-log.route";
 import { connectDatabase } from "./database/mongodb";
 import { PORT } from "./config";
+import { csrfProtection, csrfTokenHandler } from "./middleware/csrf.middleware";
+import { HttpError } from "./errors/http-error";
 
 const app: Application = express();
 
@@ -43,12 +45,13 @@ app.use(
 );
 
 // Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/admin", adminUserRoutes);
-app.use("/api/activity-logs", activityLogRoutes);
+app.get("/api/csrf-token", csrfTokenHandler);
+app.use("/api/auth", csrfProtection, authRoutes);
+app.use("/api/products", csrfProtection, productRoutes);
+app.use("/api/orders", csrfProtection, orderRoutes);
+app.use("/api/payments", csrfProtection, paymentRoutes);
+app.use("/api/admin", csrfProtection, adminUserRoutes);
+app.use("/api/activity-logs", csrfProtection, activityLogRoutes);
 
 app.get("/", (req: Request, res: Response) => {
   return res.status(200).json({
@@ -66,6 +69,10 @@ app.use((err: unknown, _req: Request, res: Response, _next: express.NextFunction
       success: false,
       message: isTooLarge ? "Image too large. Max size is 20MB." : err.message,
     });
+  }
+
+  if (err instanceof HttpError) {
+    return res.status(err.statusCode).json({ success: false, message: err.message });
   }
 
   if (err instanceof Error) {
