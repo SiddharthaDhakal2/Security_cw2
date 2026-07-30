@@ -44,6 +44,7 @@ export const JWT_ACCESS_MAX_AGE_SECONDS: number =
 export const JWT_REFRESH_MAX_AGE_SECONDS: number =
   parseDurationToSeconds(JWT_REFRESH_EXPIRES_IN) || 7 * 24 * 60 * 60;
 export const JWT_REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET || `${JWT_SECRET}_refresh`;
+export const DATA_ENCRYPTION_SECRET: string = process.env.DATA_ENCRYPTION_SECRET || JWT_SECRET;
 
 export const BCRYPT_SALT_ROUNDS: number = process.env.BCRYPT_SALT_ROUNDS
   ? parseInt(process.env.BCRYPT_SALT_ROUNDS, 10)
