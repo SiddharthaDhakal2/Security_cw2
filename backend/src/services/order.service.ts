@@ -1,6 +1,7 @@
 import { OrderRepository } from "../repositories/order.repository";
 import { CreateOrderDTO, UpdateOrderStatusDTO } from "../dtos/order.dto";
 import { HttpError } from "../errors/http-error";
+import { IOrder } from "../models/order.model";
 
 const orderRepository = new OrderRepository();
 
@@ -54,7 +55,19 @@ export class OrderService {
   }
 
   async getOrdersByStatus(status: string) {
-    return orderRepository.getOrdersByStatus(status);
+    const allowedStatuses: IOrder["status"][] = [
+      "pending",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ];
+
+    if (!allowedStatuses.includes(status as IOrder["status"])) {
+      throw new HttpError(400, "Invalid order status");
+    }
+
+    return orderRepository.getOrdersByStatus(status as IOrder["status"]);
   }
 
   async updatePaymentInfo(

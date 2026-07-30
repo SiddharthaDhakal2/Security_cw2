@@ -7,6 +7,13 @@ const AUTH_TAG_LENGTH = 16;
 
 const getKey = () => crypto.createHash("sha256").update(DATA_ENCRYPTION_SECRET).digest();
 
+type SensitiveUserFields = {
+  phone?: string | null;
+  address?: string | null;
+  resetOtp?: string | null;
+  mfaOtp?: string | null;
+};
+
 export const encryptValue = (value?: string | null) => {
   if (value === undefined || value === null) {
     return value;
@@ -62,7 +69,9 @@ export const decryptValue = (value?: string | null) => {
   }
 };
 
-export const encryptSensitiveUserFields = <T extends Record<string, any>>(input: T) => {
+export const encryptSensitiveUserFields = <T extends Record<string, unknown> & SensitiveUserFields>(
+  input: T
+) => {
   const output = { ...input };
 
   if (Object.prototype.hasOwnProperty.call(output, "phone")) {
@@ -84,7 +93,9 @@ export const encryptSensitiveUserFields = <T extends Record<string, any>>(input:
   return output;
 };
 
-export const decryptSensitiveUserFields = <T extends Record<string, any>>(input: T) => {
+export const decryptSensitiveUserFields = <T extends Record<string, unknown> & SensitiveUserFields>(
+  input: T
+) => {
   const output = { ...input };
 
   if (Object.prototype.hasOwnProperty.call(output, "phone")) {

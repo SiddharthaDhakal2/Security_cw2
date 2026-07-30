@@ -29,6 +29,22 @@ const MAX_FAILED_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 5;
 const MFA_OTP_MINUTES = 5;
 
+type MfaLoginRequiredResult = {
+  mfaRequired: true;
+  otp: string;
+  email: string;
+  message: string;
+};
+
+type LoginSuccessResult = {
+  mfaRequired: false;
+  token: string;
+  refreshToken: string;
+  user: any;
+};
+
+type LoginResult = MfaLoginRequiredResult | LoginSuccessResult;
+
 const toPublicUser = (user: any) => {
   const userObj = user?.toObject ? user.toObject() : { ...user };
   const decrypted = decryptSensitiveUserFields(userObj);
@@ -111,7 +127,7 @@ export class UserService {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  async loginUser(data: LoginUserDTO) {
+  async loginUser(data: LoginUserDTO): Promise<LoginResult> {
     const user = await userRepository.getUserByEmail(data.email);
     if (!user) {
       throw new HttpError(404, "User not found");

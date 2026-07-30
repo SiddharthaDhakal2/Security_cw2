@@ -4,6 +4,8 @@ import { ProductModel } from "../models/product.model";
 import { HttpError } from "../errors/http-error";
 import { calculateProductAvailability } from "../utils/product-availability";
 
+type OrderStatus = IOrder["status"];
+
 interface CreateOrderOptions {
   paymentMethod?: "khalti" | "esewa";
   paymentStatus?: "unpaid" | "paid" | "failed";
@@ -109,7 +111,7 @@ export class OrderRepository {
     return OrderModel.findByIdAndDelete(id);
   }
 
-  async getOrdersByStatus(status: string): Promise<IOrder[]> {
+  async getOrdersByStatus(status: OrderStatus): Promise<IOrder[]> {
     return OrderModel.find({ status, paymentStatus: "paid" }).sort({ createdAt: -1 });
   }
 

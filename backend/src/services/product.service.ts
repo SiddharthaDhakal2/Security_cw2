@@ -1,6 +1,7 @@
 import { ProductRepository } from "../repositories/product.repository";
 import { CreateProductDTO, UpdateProductDTO } from "../dtos/product.dto";
 import { HttpError } from "../errors/http-error";
+import { IProduct } from "../models/product.model";
 
 const productRepository = new ProductRepository();
 
@@ -22,7 +23,13 @@ export class ProductService {
   }
 
   async getProductsByCategory(category: string) {
-    return productRepository.getProductsByCategory(category);
+    const allowedCategories: IProduct["category"][] = ["vegetables", "fruits", "grains"];
+
+    if (!allowedCategories.includes(category as IProduct["category"])) {
+      throw new HttpError(400, "Invalid product category");
+    }
+
+    return productRepository.getProductsByCategory(category as IProduct["category"]);
   }
 
   async updateProduct(id: string, data: UpdateProductDTO) {

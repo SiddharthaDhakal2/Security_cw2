@@ -5,6 +5,8 @@ import {
   ProductAvailability,
 } from "../utils/product-availability";
 
+type ProductCategory = IProduct["category"];
+
 export class ProductRepository {
   private syncAvailability(product: IProduct): IProduct {
     product.availability = calculateProductAvailability(product.quantity);
@@ -27,7 +29,7 @@ export class ProductRepository {
     return product ? this.syncAvailability(product) : null;
   }
 
-  async getProductsByCategory(category: string): Promise<IProduct[]> {
+  async getProductsByCategory(category: ProductCategory): Promise<IProduct[]> {
     const products = await ProductModel.find({ category });
     return products.map((product) => this.syncAvailability(product));
   }

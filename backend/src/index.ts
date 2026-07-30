@@ -5,6 +5,7 @@ import express, { Application, Request, Response } from "express";
 import { MulterError } from "multer";
 import bodyParser from "body-parser";
 import cors from "cors";
+import helmet from "helmet";
 import adminUserRoutes from "./routes/admin.user.route";
 import authRoutes from "./routes/auth.route";
 import productRoutes from "./routes/product.route";
@@ -19,6 +20,11 @@ import { HttpError } from "./errors/http-error";
 const app: Application = express();
 
 // Middleware
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
