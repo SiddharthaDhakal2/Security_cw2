@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { updateProfile, changePassword, updateMfaPreference } from "@/lib/api/auth";
 import { ImageWithFallback } from "@/components/ImageWithFallback";
 import { useToast } from "@/components/ui/toast";
+import { getPasswordChecks, isStrongPassword } from "@/lib/passwordPolicy";
 
 interface ProfileFormProps {
   user: {
@@ -62,6 +63,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     if (user.image.startsWith("http://") || user.image.startsWith("https://")) return user.image;
     return `${baseUrl}${user.image}`;
   }, [baseUrl, user.image]);
+  const newPasswordChecks = useMemo(() => getPasswordChecks(newPassword), [newPassword]);
 
   useEffect(() => {
     return () => {
@@ -213,9 +215,8 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         return;
       }
 
-      const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-      if (!strongPasswordPattern.test(newPassword)) {
-        setNewPasswordError("Use 8+ characters with uppercase, lowercase, number, and symbol");
+      if (!isStrongPassword(newPassword)) {
+        setNewPasswordError("Use 8 to 25 characters with uppercase, lowercase, number, and symbol");
         setIsChangingPassword(false);
         return;
       }
@@ -521,6 +522,18 @@ export default function ProfileForm({ user }: ProfileFormProps) {
             />
             {newPasswordError && (
               <p className="text-sm text-red-600 mt-1">{newPasswordError}</p>
+            )}
+            {newPassword && (
+              <div className="mt-2 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+                {newPasswordChecks.map((check) => (
+                  <span
+                    key={check.label}
+                    className={check.valid ? "text-green-700" : "text-gray-500"}
+                  >
+                    {check.valid ? "OK" : "--"} {check.label}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
 

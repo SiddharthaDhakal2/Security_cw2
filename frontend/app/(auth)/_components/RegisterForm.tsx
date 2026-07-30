@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useState, useTransition } from "react";
@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { RegisterData, registerSchema } from "../schema";
 import { handleRegister } from "@/lib/actions/auth-actions";
 import { useToast } from "@/components/ui/toast";
+import { getPasswordChecks } from "@/lib/passwordPolicy";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -17,13 +18,16 @@ export default function RegisterForm() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<RegisterData>({
     resolver: zodResolver(registerSchema),
-    mode: "onSubmit",
+    mode: "onChange",
   });
 
   const [pending, startTransition] = useTransition();
+  const password = useWatch({ control, name: "password" }) || "";
+  const passwordChecks = getPasswordChecks(password);
 
   const submit = async (values: RegisterData) => {
     setErrorMessage(""); // Clear previous errors
@@ -93,6 +97,18 @@ export default function RegisterForm() {
         />
         {errors.password?.message && (
           <p className="text-xs text-red-600">{errors.password.message}</p>
+        )}
+        {password && (
+          <div className="grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+            {passwordChecks.map((check) => (
+              <span
+                key={check.label}
+                className={check.valid ? "text-green-700" : "text-gray-500"}
+              >
+                {check.valid ? "OK" : "--"} {check.label}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 

@@ -1,14 +1,14 @@
 import { z } from "zod";
+import { passwordPolicyMessage } from "@/lib/passwordPolicy";
 
-const passwordMessage =
-  "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
 const strongPasswordSchema = z
   .string()
-  .min(8, passwordMessage)
-  .regex(/[a-z]/, passwordMessage)
-  .regex(/[A-Z]/, passwordMessage)
-  .regex(/[0-9]/, passwordMessage)
-  .regex(/[^A-Za-z0-9]/, passwordMessage);
+  .min(8, passwordPolicyMessage)
+  .max(25, passwordPolicyMessage)
+  .regex(/[a-z]/, passwordPolicyMessage)
+  .regex(/[A-Z]/, passwordPolicyMessage)
+  .regex(/[0-9]/, passwordPolicyMessage)
+  .regex(/[^A-Za-z0-9]/, passwordPolicyMessage);
 
 export const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
