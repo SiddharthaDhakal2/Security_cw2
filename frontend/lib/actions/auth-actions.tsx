@@ -29,9 +29,20 @@ type LoginResponse = {
     mfaEnabled?: boolean;
   };
   token?: string;
+  refreshToken?: string;
   mfaRequired?: boolean;
   email?: string;
 };
+
+const authCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+};
+
+const accessTokenMaxAge = 15 * 60;
+const refreshTokenMaxAge = 7 * 24 * 60 * 60;
 
 export const handleRegister = async (formData: { name: string; email: string; password: string; confirmPassword: string }): Promise<RegisterResponse> => {
   try {
@@ -64,7 +75,7 @@ export const handleLogin = async (formData: { email: string; password: string })
 
     const cookieStore = await cookies();
 
-    if (!res.token || !res.data) {
+    if (!res.token || !res.refreshToken || !res.data) {
       return {
         success: false,
         message: "Login response was missing authentication data",
@@ -72,26 +83,33 @@ export const handleLogin = async (formData: { email: string; password: string })
     }
 
     cookieStore.set("token", res.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
+      ...authCookieOptions,
+      maxAge: accessTokenMaxAge,
+    });
+
+    cookieStore.set("refreshToken", res.refreshToken, {
+      ...authCookieOptions,
+      maxAge: refreshTokenMaxAge,
     });
 
     cookieStore.set("user", JSON.stringify(res.data), {
       httpOnly: false,
       path: "/",
+      maxAge: refreshTokenMaxAge,
     });
 
     cookieStore.set("role", res.data.role, {
       httpOnly: false,
       path: "/",
+      maxAge: refreshTokenMaxAge,
     });
 
     return {
       success: true,
       message: res.message,
       data: res.data,
-      token: res.token, // Return token to be stored in localStorage
+      token: res.token,
+      refreshToken: res.refreshToken,
     };
   } catch (err: unknown) {
     return {
@@ -107,7 +125,7 @@ export const handleVerifyMfaLogin = async (formData: { email: string; otp: strin
 
     const cookieStore = await cookies();
 
-    if (!res.token || !res.data) {
+    if (!res.token || !res.refreshToken || !res.data) {
       return {
         success: false,
         message: "MFA response was missing authentication data",
@@ -115,19 +133,25 @@ export const handleVerifyMfaLogin = async (formData: { email: string; otp: strin
     }
 
     cookieStore.set("token", res.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
+      ...authCookieOptions,
+      maxAge: accessTokenMaxAge,
+    });
+
+    cookieStore.set("refreshToken", res.refreshToken, {
+      ...authCookieOptions,
+      maxAge: refreshTokenMaxAge,
     });
 
     cookieStore.set("user", JSON.stringify(res.data), {
       httpOnly: false,
       path: "/",
+      maxAge: refreshTokenMaxAge,
     });
 
     cookieStore.set("role", res.data.role, {
       httpOnly: false,
       path: "/",
+      maxAge: refreshTokenMaxAge,
     });
 
     return {
@@ -135,6 +159,7 @@ export const handleVerifyMfaLogin = async (formData: { email: string; otp: strin
       message: res.message,
       data: res.data,
       token: res.token,
+      refreshToken: res.refreshToken,
     };
   } catch (err: unknown) {
     return {
@@ -149,6 +174,7 @@ export const handleLogout = async () => {
     const cookieStore = await cookies();
     
     cookieStore.delete("token");
+    cookieStore.delete("refreshToken");
     cookieStore.delete("user");
     cookieStore.delete("role");
 
