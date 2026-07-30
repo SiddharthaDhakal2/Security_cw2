@@ -53,7 +53,15 @@ export class OrderController {
   async getOrderById(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const requester = (req as any).user;
       const order = await orderService.getOrderById(id);
+
+      if (requester?.role !== "admin" && order.userId?.toString() !== requester?.id) {
+        return res.status(403).json({
+          success: false,
+          message: "Forbidden",
+        });
+      }
 
       return res.status(200).json({
         success: true,
