@@ -46,6 +46,8 @@ const forgotPasswordResetRateLimit = createRateLimiter({
 router.post("/register", registerRateLimit, authController.register)
 router.post("/login", loginRateLimit, authController.login)
 router.post("/login/mfa/verify", mfaRateLimit, authController.verifyMfaLogin)
+router.post("/refresh-session", authController.refreshSession)
+router.post("/logout", authController.logout)
 router.put("/profile/:id", requireAuth, uploadUserImage.single("image"), authController.updateProfile)
 router.put("/change-password/:id", requireAuth, authController.changePassword)
 router.put("/mfa/:id", requireAuth, authController.updateMfaPreference)

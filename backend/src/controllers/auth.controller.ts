@@ -4,8 +4,39 @@ import { Request, Response } from "express";
 import nodemailer from "nodemailer";
 import { activityLogService } from "../services/activity-log.service";
 import { isStrongPassword, passwordPolicyMessage } from "../utils/password-policy";
+import { JWT_ACCESS_MAX_AGE_SECONDS, JWT_REFRESH_MAX_AGE_SECONDS } from "../config";
 
 const userService = new UserService();
+
+const authCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+};
+
+const setAuthCookies = (res: Response, token?: string, refreshToken?: string) => {
+  if (token) {
+    res.cookie("token", token, {
+      ...authCookieOptions,
+      maxAge: JWT_ACCESS_MAX_AGE_SECONDS * 1000,
+    });
+  }
+
+  if (refreshToken) {
+    res.cookie("refreshToken", refreshToken, {
+      ...authCookieOptions,
+      maxAge: JWT_REFRESH_MAX_AGE_SECONDS * 1000,
+    });
+  }
+};
+
+const clearAuthCookies = (res: Response) => {
+  res.clearCookie("token", authCookieOptions);
+  res.clearCookie("refreshToken", authCookieOptions);
+  res.clearCookie("user", { path: "/" });
+  res.clearCookie("role", { path: "/" });
+};
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -161,11 +192,14 @@ export class AuthController {
         },
       });
 
+      setAuthCookies(res, loginResult.token, loginResult.refreshToken);
+
       return res.status(200).json({
         success: true,
         message: "Login successful",
         mfaRequired: false,
         token: loginResult.token,
+        refreshToken: loginResult.refreshToken,
         data: loginResult.user,
       });
     } catch (error: any) {
@@ -198,10 +232,11 @@ export class AuthController {
         });
       }
 
-      const { token, user } = await userService.verifyMfaLogin(
+      const { token, refreshToken, user } = await userService.verifyMfaLogin(
         parsedData.data.email,
         parsedData.data.otp
       );
+      setAuthCookies(res, token, refreshToken);
       await activityLogService.log({
         req,
         action: "auth.login.mfa_verified",
@@ -221,7 +256,60 @@ export class AuthController {
         success: true,
         message: "Login successful",
         token,
+        refreshToken,
         data: user,
+      });
+    } catch (error: any) {
+      return res.status(error.statusCode ?? 500).json({
+        success: false,
+        message: error.message || "Internal Server Error",
+      });
+    }
+  }
+
+  async refreshSession(req: Request, res: Response) {
+    try {
+      const cookieRefreshToken = req.headers.cookie
+        ?.split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("refreshToken="))
+        ?.split("=")[1];
+
+      const bodyRefreshToken = req.body?.refreshToken;
+      const refreshToken = decodeURIComponent(cookieRefreshToken || bodyRefreshToken || "");
+
+      if (!refreshToken) {
+        return res.status(401).json({
+          success: false,
+          message: "Unauthorized",
+        });
+      }
+
+      const refreshed = await userService.refreshSession(refreshToken);
+      setAuthCookies(res, refreshed.token, refreshed.refreshToken);
+
+      return res.status(200).json({
+        success: true,
+        message: "Session refreshed",
+        token: refreshed.token,
+        refreshToken: refreshed.refreshToken,
+        data: refreshed.user,
+      });
+    } catch (error: any) {
+      return res.status(error.statusCode ?? 401).json({
+        success: false,
+        message: error.message || "Unauthorized",
+      });
+    }
+  }
+
+  async logout(_req: Request, res: Response) {
+    try {
+      clearAuthCookies(res);
+
+      return res.status(200).json({
+        success: true,
+        message: "Logged out successfully",
       });
     } catch (error: any) {
       return res.status(error.statusCode ?? 500).json({
