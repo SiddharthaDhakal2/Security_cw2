@@ -18,7 +18,32 @@ if (!JWT_SECRET) {
   throw new Error("JWT_SECRET is missing in .env");
 }
 
-export const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || "7d";
+const parseDurationToSeconds = (value: string) => {
+  const match = value.trim().match(/^(\d+)([smhd])$/i);
+
+  if (!match) {
+    return 0;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+
+  if (unit === "s") return amount;
+  if (unit === "m") return amount * 60;
+  if (unit === "h") return amount * 60 * 60;
+  if (unit === "d") return amount * 24 * 60 * 60;
+
+  return 0;
+};
+
+export const JWT_ACCESS_EXPIRES_IN: string = process.env.JWT_ACCESS_EXPIRES_IN || "15m";
+export const JWT_REFRESH_EXPIRES_IN: string = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
+export const JWT_EXPIRES_IN: string = JWT_ACCESS_EXPIRES_IN;
+export const JWT_ACCESS_MAX_AGE_SECONDS: number =
+  parseDurationToSeconds(JWT_ACCESS_EXPIRES_IN) || 15 * 60;
+export const JWT_REFRESH_MAX_AGE_SECONDS: number =
+  parseDurationToSeconds(JWT_REFRESH_EXPIRES_IN) || 7 * 24 * 60 * 60;
+export const JWT_REFRESH_SECRET: string = process.env.JWT_REFRESH_SECRET || `${JWT_SECRET}_refresh`;
 
 export const BCRYPT_SALT_ROUNDS: number = process.env.BCRYPT_SALT_ROUNDS
   ? parseInt(process.env.BCRYPT_SALT_ROUNDS, 10)

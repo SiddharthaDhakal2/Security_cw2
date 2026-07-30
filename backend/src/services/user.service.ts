@@ -3,7 +3,14 @@ import * as jwt from "jsonwebtoken";
 import { CreateUserDTO, LoginUserDTO } from "../dtos/user.dto";
 import { UserRepository } from "../repositories/user.repository";
 import { HttpError } from "../errors/http-error";
-import { JWT_SECRET, JWT_EXPIRES_IN, BCRYPT_SALT_ROUNDS } from "../config";
+import {
+  JWT_ACCESS_EXPIRES_IN,
+  JWT_EXPIRES_IN,
+  JWT_REFRESH_EXPIRES_IN,
+  JWT_REFRESH_SECRET,
+  JWT_SECRET,
+  BCRYPT_SALT_ROUNDS,
+} from "../config";
 import {
   PASSWORD_HISTORY_LIMIT,
   getPasswordExpiryDate,
@@ -63,11 +70,32 @@ export class UserService {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      tokenType: "access",
     };
 
     return jwt.sign(payload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+      expiresIn: JWT_ACCESS_EXPIRES_IN as jwt.SignOptions["expiresIn"],
     });
+  }
+
+  private createRefreshToken(user: any) {
+    const payload = {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      tokenType: "refresh",
+    };
+
+    return jwt.sign(payload, JWT_REFRESH_SECRET, {
+      expiresIn: JWT_REFRESH_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+    });
+  }
+
+  private createAuthTokens(user: any) {
+    return {
+      token: this.createToken(user),
+      refreshToken: this.createRefreshToken(user),
+    };
   }
 
   private generateOtp(): string {
@@ -139,7 +167,7 @@ export class UserService {
       };
     }
 
-    return { token: this.createToken(user), user: toPublicUser(user), mfaRequired: false };
+    return { ...this.createAuthTokens(user), user: toPublicUser(user), mfaRequired: false };
   }
 
   async verifyMfaLogin(email: string, otp: string) {
@@ -165,7 +193,41 @@ export class UserService {
       mfaOtpExpiry: null,
     } as any);
 
-    return { token: this.createToken(user), user: toPublicUser(user) };
+    return { ...this.createAuthTokens(user), user: toPublicUser(user) };
+  }
+
+  async refreshSession(refreshToken: string) {
+    if (!refreshToken) {
+      throw new HttpError(401, "Unauthorized");
+    }
+
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET) as jwt.JwtPayload & {
+      id?: string;
+      tokenType?: string;
+    };
+
+    if (decoded.tokenType && decoded.tokenType !== "refresh") {
+      throw new HttpError(401, "Unauthorized");
+    }
+
+    const userId = decoded.id;
+    if (!userId) {
+      throw new HttpError(401, "Unauthorized");
+    }
+
+    const user = await userRepository.getUserById(userId);
+    if (!user) {
+      throw new HttpError(404, "User not found");
+    }
+
+    return {
+      ...this.createAuthTokens(user),
+      user: toPublicUser(user),
+    };
+  }
+
+  async findById(id: string) {
+    return userRepository.getUserById(id);
   }
 
   async updateMfaPreference(requester: any, userId: string, enabled: boolean, currentPassword: string) {
