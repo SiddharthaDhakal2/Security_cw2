@@ -65,6 +65,7 @@ export default function Header() {
       if (typeof window !== "undefined") {
         try {
           localStorage.removeItem("token");
+          localStorage.removeItem("refreshToken");
           localStorage.removeItem("user");
           localStorage.removeItem("profileData");
         } catch (err) {

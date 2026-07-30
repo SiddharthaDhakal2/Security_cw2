@@ -39,6 +39,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         if (typeof window !== "undefined") {
           try {
             localStorage.removeItem("token");
+            localStorage.removeItem("refreshToken");
             localStorage.removeItem("user");
             localStorage.removeItem("profileData");
           } catch (err) {

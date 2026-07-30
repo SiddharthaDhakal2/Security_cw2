@@ -29,9 +29,8 @@ export default function LoginForm() {
 
   const [pending, startTransition] = useTransition();
 
-  const finishLogin = (token: string, user: NonNullable<Awaited<ReturnType<typeof handleLogin>>["data"]>) => {
+  const finishLogin = (_token: string, user: NonNullable<Awaited<ReturnType<typeof handleLogin>>["data"]>) => {
     if (typeof window !== "undefined") {
-      localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
     }
 
