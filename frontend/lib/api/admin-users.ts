@@ -42,12 +42,7 @@ export const getAdminUsers = async (): Promise<AdminUser[]> => {
 
 export const updateAdminUser = async (userId: string, data: FormData): Promise<AdminUser> => {
   try {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const res = await axiosInstance.put<AdminUserResponse>(`${API.ADMIN.USERS.UPDATE}/${userId}`, data, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const res = await axiosInstance.put<AdminUserResponse>(`${API.ADMIN.USERS.UPDATE}/${userId}`, data);
 
     return res.data.data;
   } catch (err: unknown) {

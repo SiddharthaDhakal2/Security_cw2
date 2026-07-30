@@ -4,6 +4,8 @@ export const API = {
         REGISTER: "/api/auth/register",
         LOGIN: "/api/auth/login",
         MFA_VERIFY_LOGIN: "/api/auth/login/mfa/verify",
+        REFRESH_SESSION: "/api/auth/refresh-session",
+        LOGOUT: "/api/auth/logout",
         UPDATE_MFA: "/api/auth/mfa",
         UPDATE_PROFILE: "/api/auth/profile",
         CHANGE_PASSWORD: "/api/auth/change-password",

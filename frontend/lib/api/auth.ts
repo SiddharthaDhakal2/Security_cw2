@@ -33,6 +33,7 @@ export interface LoginResponse {
   mfaRequired?: boolean;
   email?: string;
   token?: string;
+  refreshToken?: string;
   data?: {
     _id: string;
     name: string;
@@ -126,12 +127,7 @@ export const verifyMfaLogin = async (data: VerifyMfaLoginData): Promise<LoginRes
 
 export const updateProfile = async (userId: string, data: FormData): Promise<UpdateProfileResponse> => {
   try {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const res = await axiosInstance.put<UpdateProfileResponse>(`${API.AUTH.UPDATE_PROFILE}/${userId}`, data, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const res = await axiosInstance.put<UpdateProfileResponse>(`${API.AUTH.UPDATE_PROFILE}/${userId}`, data);
     return res.data;
   } catch (err: unknown) {
     let message = "Profile update failed";
@@ -158,15 +154,10 @@ export interface ChangePasswordResponse {
 
 export const changePassword = async (userId: string, data: ChangePasswordData): Promise<ChangePasswordResponse> => {
   try {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const res = await axiosInstance.put<ChangePasswordResponse>(
       `${API.AUTH.CHANGE_PASSWORD}/${userId}`,
       data,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      
     );
     return res.data;
   } catch (err: unknown) {
@@ -192,19 +183,55 @@ export const updateMfaPreference = async (
   data: UpdateMfaData
 ): Promise<UpdateProfileResponse> => {
   try {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const res = await axiosInstance.put<UpdateProfileResponse>(
       `${API.AUTH.UPDATE_MFA}/${userId}`,
-      data,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
+      data
     );
     return res.data;
   } catch (err: unknown) {
     let message = "MFA update failed";
+
+    if (err instanceof AxiosError && err.response) {
+      message = err.response.data?.message || message;
+    } else if (err instanceof Error) {
+      message = err.message;
+    }
+
+    throw new Error(message);
+  }
+};
+
+export interface RefreshSessionResponse {
+  success: boolean;
+  message: string;
+  token?: string;
+  refreshToken?: string;
+  data?: LoginResponse["data"];
+}
+
+export const refreshSession = async (): Promise<RefreshSessionResponse> => {
+  try {
+    const res = await axiosInstance.post<RefreshSessionResponse>(API.AUTH.REFRESH_SESSION, {});
+    return res.data;
+  } catch (err: unknown) {
+    let message = "Session refresh failed";
+
+    if (err instanceof AxiosError && err.response) {
+      message = err.response.data?.message || message;
+    } else if (err instanceof Error) {
+      message = err.message;
+    }
+
+    throw new Error(message);
+  }
+};
+
+export const logoutSession = async (): Promise<{ success: boolean; message: string }> => {
+  try {
+    const res = await axiosInstance.post<{ success: boolean; message: string }>(API.AUTH.LOGOUT, {});
+    return res.data;
+  } catch (err: unknown) {
+    let message = "Logout failed";
 
     if (err instanceof AxiosError && err.response) {
       message = err.response.data?.message || message;
