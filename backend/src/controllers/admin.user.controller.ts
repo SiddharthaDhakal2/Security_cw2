@@ -6,19 +6,22 @@ import { BCRYPT_SALT_ROUNDS } from "../config";
 import { AdminCreateUserDTO, AdminUpdateUserDTO } from "../dtos/admin.user.dto";
 import { activityLogService } from "../services/activity-log.service";
 import { PASSWORD_HISTORY_LIMIT, getPasswordExpiryDate } from "../utils/password-policy";
+import { decryptSensitiveUserFields, encryptSensitiveUserFields } from "../utils/encryption";
 const repo = new UserRepository();
 
 const toSafeUser = (user: any) => {
   const obj = user?.toObject ? user.toObject() : { ...user };
-  delete obj.password;
-  delete obj.passwordHistory;
-  delete obj.passwordChangedAt;
-  delete obj.passwordExpiresAt;
-  delete obj.resetOtp;
-  delete obj.resetOtpExpiry;
-  delete obj.mfaOtp;
-  delete obj.mfaOtpExpiry;
-  return obj;
+  const decrypted = decryptSensitiveUserFields(obj);
+  const safeUser = { ...decrypted };
+  delete safeUser.password;
+  delete safeUser.passwordHistory;
+  delete safeUser.passwordChangedAt;
+  delete safeUser.passwordExpiresAt;
+  delete safeUser.resetOtp;
+  delete safeUser.resetOtpExpiry;
+  delete safeUser.mfaOtp;
+  delete safeUser.mfaOtpExpiry;
+  return safeUser;
 };
 
 export class AdminUserController {
@@ -50,7 +53,9 @@ export class AdminUserController {
       data.passwordChangedAt = new Date();
       data.passwordExpiresAt = getPasswordExpiryDate();
 
-      const created = await repo.createUser(data);
+      const encryptedData = encryptSensitiveUserFields(data);
+
+      const created = await repo.createUser(encryptedData);
       const obj = toSafeUser(created);
       await activityLogService.log({
         req,
@@ -151,7 +156,9 @@ export class AdminUserController {
         delete update.image;
       }
 
-      const updated = await repo.updateUser(req.params.id, update);
+      const encryptedUpdate = encryptSensitiveUserFields(update);
+
+      const updated = await repo.updateUser(req.params.id, encryptedUpdate);
       if (!updated) throw new HttpError(404, "User not found");
 
       const obj = toSafeUser(updated);
