@@ -5,7 +5,21 @@ import { HttpError } from "../errors/http-error";
 import { BCRYPT_SALT_ROUNDS } from "../config";
 import { AdminCreateUserDTO, AdminUpdateUserDTO } from "../dtos/admin.user.dto";
 import { activityLogService } from "../services/activity-log.service";
+import { PASSWORD_HISTORY_LIMIT, getPasswordExpiryDate } from "../utils/password-policy";
 const repo = new UserRepository();
+
+const toSafeUser = (user: any) => {
+  const obj = user?.toObject ? user.toObject() : { ...user };
+  delete obj.password;
+  delete obj.passwordHistory;
+  delete obj.passwordChangedAt;
+  delete obj.passwordExpiresAt;
+  delete obj.resetOtp;
+  delete obj.resetOtpExpiry;
+  delete obj.mfaOtp;
+  delete obj.mfaOtpExpiry;
+  return obj;
+};
 
 export class AdminUserController {
   // POST /api/admin/users (multer)
@@ -32,10 +46,12 @@ export class AdminUserController {
       if (await repo.getUserByName(data.name)) throw new HttpError(409, "Username already in use");
 
       data.password = await bcryptjs.hash(data.password, BCRYPT_SALT_ROUNDS);
+      data.passwordHistory = [];
+      data.passwordChangedAt = new Date();
+      data.passwordExpiresAt = getPasswordExpiryDate();
 
       const created = await repo.createUser(data);
-      const obj = (created as any).toObject();
-      delete obj.password;
+      const obj = toSafeUser(created);
       await activityLogService.log({
         req,
         action: "admin.user.created",
@@ -62,11 +78,7 @@ export class AdminUserController {
   async getUsers(_req: Request, res: Response) {
     try {
       const users = await repo.getAllUsers();
-      const safe = users.map((u: any) => {
-        const obj = u.toObject();
-        delete obj.password;
-        return obj;
-      });
+      const safe = users.map(toSafeUser);
 
       return res.status(200).json({ success: true, data: safe });
     } catch (error: any) {
@@ -83,8 +95,7 @@ export class AdminUserController {
       const user = await repo.getUserById(req.params.id);
       if (!user) throw new HttpError(404, "User not found");
 
-      const obj = (user as any).toObject();
-      delete obj.password;
+      const obj = toSafeUser(user);
 
       return res.status(200).json({ success: true, data: obj });
     } catch (error: any) {
@@ -116,7 +127,23 @@ export class AdminUserController {
       const update: any = parsed.data;
 
       if (update.password) {
+        const existing = await repo.getUserById(req.params.id);
+        if (!existing) throw new HttpError(404, "User not found");
+
+        const passwordHistory = existing.passwordHistory || [];
+        const sameAsCurrent = await bcryptjs.compare(update.password, existing.password);
+        const reusedRecentPassword = await Promise.all(
+          passwordHistory.map((passwordHash) => bcryptjs.compare(update.password, passwordHash))
+        );
+
+        if (sameAsCurrent || reusedRecentPassword.some(Boolean)) {
+          throw new HttpError(400, "New password cannot match any of the user's last 3 passwords");
+        }
+
         update.password = await bcryptjs.hash(update.password, BCRYPT_SALT_ROUNDS);
+        update.passwordHistory = [existing.password, ...passwordHistory].slice(0, PASSWORD_HISTORY_LIMIT);
+        update.passwordChangedAt = new Date();
+        update.passwordExpiresAt = getPasswordExpiryDate();
       }
 
       // If image not provided, don’t overwrite it with undefined
@@ -127,8 +154,7 @@ export class AdminUserController {
       const updated = await repo.updateUser(req.params.id, update);
       if (!updated) throw new HttpError(404, "User not found");
 
-      const obj = (updated as any).toObject();
-      delete obj.password;
+      const obj = toSafeUser(updated);
       await activityLogService.log({
         req,
         action: "admin.user.updated",

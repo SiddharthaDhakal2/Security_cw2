@@ -3,11 +3,9 @@ import { CreateUserDTO, LoginUserDTO, MfaPreferenceDTO, MfaVerifyDTO } from "../
 import { Request, Response } from "express";
 import nodemailer from "nodemailer";
 import { activityLogService } from "../services/activity-log.service";
+import { isStrongPassword, passwordPolicyMessage } from "../utils/password-policy";
 
 const userService = new UserService();
-const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-const strongPasswordMessage =
-  "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol";
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -497,10 +495,10 @@ export class AuthController {
         });
       }
 
-      if (!strongPasswordPattern.test(newPassword)) {
+      if (!isStrongPassword(newPassword)) {
         return res.status(400).json({
           success: false,
-          message: strongPasswordMessage,
+          message: passwordPolicyMessage,
         });
       }
 

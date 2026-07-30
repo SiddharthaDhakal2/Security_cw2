@@ -4,6 +4,9 @@ const UserSchema: Schema = new Schema<UserType>(
     {
         email: { type: String, required: true, unique: true },
         password: { type: String, required: true },
+        passwordHistory: { type: [String], default: [] },
+        passwordChangedAt: { type: Date, default: Date.now },
+        passwordExpiresAt: { type: Date, required: true },
         name: { type: String, required: true },
         firstName: { type: String },
         lastName: { type: String },

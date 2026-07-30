@@ -4,6 +4,13 @@ import { CreateUserDTO, LoginUserDTO } from "../dtos/user.dto";
 import { UserRepository } from "../repositories/user.repository";
 import { HttpError } from "../errors/http-error";
 import { JWT_SECRET, JWT_EXPIRES_IN, BCRYPT_SALT_ROUNDS } from "../config";
+import {
+  PASSWORD_HISTORY_LIMIT,
+  getPasswordExpiryDate,
+  getPasswordExpiryDateFrom,
+  isStrongPassword,
+  passwordPolicyMessage,
+} from "../utils/password-policy";
 
 const userRepository = new UserRepository();
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
@@ -20,15 +27,11 @@ const toPublicUser = (user: any) => {
   delete userObj.failedLoginAttempts;
   delete userObj.lockedUntil;
   delete userObj.lastFailedLoginAt;
+  delete userObj.passwordHistory;
+  delete userObj.passwordChangedAt;
+  delete userObj.passwordExpiresAt;
   return userObj;
 };
-
-const isStrongPassword = (password: string) =>
-  password.length >= 8 &&
-  /[a-z]/.test(password) &&
-  /[A-Z]/.test(password) &&
-  /[0-9]/.test(password) &&
-  /[^A-Za-z0-9]/.test(password);
 
 export class UserService {
   async createUser(data: CreateUserDTO) {
@@ -38,9 +41,16 @@ export class UserService {
     }
 
     const hashedPassword = await bcryptjs.hash(data.password, BCRYPT_SALT_ROUNDS);
-    data.password = hashedPassword;
+    const now = new Date();
+    const userData = {
+      ...data,
+      password: hashedPassword,
+      passwordHistory: [],
+      passwordChangedAt: now,
+      passwordExpiresAt: getPasswordExpiryDate(),
+    };
 
-    const newUser = await userRepository.createUser(data);
+    const newUser = await userRepository.createUser(userData as any);
 
     return toPublicUser(newUser);
   }
@@ -75,6 +85,14 @@ export class UserService {
         423,
         `Account locked. Try again after ${user.lockedUntil.toLocaleString()}`
       );
+    }
+
+    const passwordExpiresAt =
+      user.passwordExpiresAt ||
+      getPasswordExpiryDateFrom(user.passwordChangedAt || user.createdAt || new Date());
+
+    if (passwordExpiresAt <= new Date()) {
+      throw new HttpError(403, "Password expired. Please reset your password before logging in");
     }
 
     const validPassword = await bcryptjs.compare(data.password, user.password);
@@ -226,7 +244,7 @@ export class UserService {
     if (!newPassword || !isStrongPassword(newPassword)) {
       throw new HttpError(
         400,
-        "New password must be at least 8 characters and include uppercase, lowercase, number, and symbol"
+        passwordPolicyMessage
       );
     }
 
@@ -248,11 +266,25 @@ export class UserService {
       throw new HttpError(400, "New password must be different from current password");
     }
 
+    const recentPasswordHashes = user.passwordHistory || [];
+    const reusedRecentPassword = await Promise.all(
+      recentPasswordHashes.map((passwordHash) => bcryptjs.compare(newPassword, passwordHash))
+    );
+
+    if (reusedRecentPassword.some(Boolean)) {
+      throw new HttpError(400, "New password cannot match any of your last 3 passwords");
+    }
+
     // Hash new password
     const hashedPassword = await bcryptjs.hash(newPassword, BCRYPT_SALT_ROUNDS);
 
     // Update password
-    const updated = await userRepository.updateUser(userId, { password: hashedPassword });
+    const updated = await userRepository.updateUser(userId, {
+      password: hashedPassword,
+      passwordHistory: [user.password, ...recentPasswordHashes].slice(0, PASSWORD_HISTORY_LIMIT),
+      passwordChangedAt: new Date(),
+      passwordExpiresAt: getPasswordExpiryDate(),
+    } as any);
     if (!updated) throw new HttpError(500, "Failed to update password");
 
     return { success: true, message: "Password updated successfully" };
@@ -305,12 +337,32 @@ export class UserService {
     if (!newPassword || !isStrongPassword(newPassword)) {
       throw new HttpError(
         400,
-        "New password must be at least 8 characters and include uppercase, lowercase, number, and symbol"
+        passwordPolicyMessage
       );
     }
 
+    const user = await userRepository.getUserById(userId);
+    if (!user) {
+      throw new HttpError(404, "User not found");
+    }
+
+    const sameAsCurrent = await bcryptjs.compare(newPassword, user.password);
+    const recentPasswordHashes = user.passwordHistory || [];
+    const reusedRecentPassword = await Promise.all(
+      recentPasswordHashes.map((passwordHash) => bcryptjs.compare(newPassword, passwordHash))
+    );
+
+    if (sameAsCurrent || reusedRecentPassword.some(Boolean)) {
+      throw new HttpError(400, "New password cannot match any of your last 3 passwords");
+    }
+
     const hashedPassword = await bcryptjs.hash(newPassword, BCRYPT_SALT_ROUNDS);
-    const updated = await userRepository.updateUser(userId, { password: hashedPassword });
+    const updated = await userRepository.updateUser(userId, {
+      password: hashedPassword,
+      passwordHistory: [user.password, ...recentPasswordHashes].slice(0, PASSWORD_HISTORY_LIMIT),
+      passwordChangedAt: new Date(),
+      passwordExpiresAt: getPasswordExpiryDate(),
+    } as any);
     if (!updated) throw new HttpError(500, "Failed to update password");
 
     return { success: true, message: "Password reset successfully" };

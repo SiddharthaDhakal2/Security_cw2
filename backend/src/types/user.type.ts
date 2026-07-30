@@ -6,10 +6,14 @@ export const UserSchema = z.object({
     password: z
         .string()
         .min(8)
+        .max(25)
         .regex(/[a-z]/)
         .regex(/[A-Z]/)
         .regex(/[0-9]/)
         .regex(/[^A-Za-z0-9]/),
+    passwordHistory: z.array(z.string()).default([]),
+    passwordChangedAt: z.date().optional(),
+    passwordExpiresAt: z.date().optional(),
     firstName: z.string().optional(),
     lastName: z.string().optional(),
     role: z.enum(["user", "admin"]).default("user"),
